@@ -1,39 +1,77 @@
 import React, { useRef, useEffect } from 'react';
 
 /**
- * Invisible/Subtle Touch Zone on the right half of the screen for camera swipe rotation
- * - Does not block clicks on HUD buttons because it sits underneath HUD buttons (z-index 10)
- * - Emits onCameraRotate(deltaYaw, deltaPitch)
+ * Invisible Touch Camera Control Zone
+ * - Single-finger swipe: 360° Camera Yaw & Pitch
+ * - Two-finger pinch: Camera Zoom In/Out
+ * - Safely ignores touches on joystick, buttons, and HUD controls
+ * - Accumulates deltas in touchCameraRef (no React re-renders)
  */
-export default function TouchCameraZone({ onCameraRotate }) {
+export default function TouchCameraZone({ touchCameraRef }) {
   const activeTouchId = useRef(null);
-  const lastPos = useRef({ x: 0, y: 0 });
+  const lastTouchPos = useRef({ x: 0, y: 0 });
+
+  // Two-finger pinch zoom tracking
+  const pinchDistance = useRef(null);
 
   useEffect(() => {
     const handleTouchStart = (e) => {
-      // Look for a touch on the right half of the screen
+      // Ignore if touch started on an interactive control or joystick
+      const target = e.target;
+      if (
+        target.closest('button') || 
+        target.closest('a') || 
+        target.closest('[data-no-swipe="true"]')
+      ) {
+        return;
+      }
+
+      // Check for two-finger pinch
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        pinchDistance.current = Math.hypot(dx, dy);
+        return;
+      }
+
+      // Single finger drag (look for a touch on the right 65% of screen or non-joystick region)
       for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
-        if (touch.clientX > window.innerWidth * 0.38) {
+        if (touch.clientX > window.innerWidth * 0.35) {
           activeTouchId.current = touch.identifier;
-          lastPos.current = { x: touch.clientX, y: touch.clientY };
+          lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
           break;
         }
       }
     };
 
     const handleTouchMove = (e) => {
+      // 1. Two-finger pinch zoom
+      if (e.touches.length === 2 && pinchDistance.current !== null) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const currentDist = Math.hypot(dx, dy);
+        const deltaZoom = (pinchDistance.current - currentDist) * 0.015;
+        pinchDistance.current = currentDist;
+
+        if (touchCameraRef && touchCameraRef.current) {
+          touchCameraRef.current.zoom += deltaZoom;
+        }
+        return;
+      }
+
+      // 2. Single-finger camera orbit
       if (activeTouchId.current === null) return;
       for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
         if (touch.identifier === activeTouchId.current) {
-          const dx = touch.clientX - lastPos.current.x;
-          const dy = touch.clientY - lastPos.current.y;
-          lastPos.current = { x: touch.clientX, y: touch.clientY };
+          const deltaX = touch.clientX - lastTouchPos.current.x;
+          const deltaY = touch.clientY - lastTouchPos.current.y;
+          lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
 
-          // Sensitivity
-          if (onCameraRotate) {
-            onCameraRotate(-dx * 0.006, dy * 0.003);
+          if (touchCameraRef && touchCameraRef.current) {
+            touchCameraRef.current.yaw -= deltaX * 0.0055;
+            touchCameraRef.current.pitch += deltaY * 0.0035;
           }
           break;
         }
@@ -41,7 +79,9 @@ export default function TouchCameraZone({ onCameraRotate }) {
     };
 
     const handleTouchEnd = (e) => {
-      if (activeTouchId.current === null) return;
+      if (e.touches.length < 2) {
+        pinchDistance.current = null;
+      }
       for (let i = 0; i < e.changedTouches.length; i++) {
         if (e.changedTouches[i].identifier === activeTouchId.current) {
           activeTouchId.current = null;
@@ -61,7 +101,7 @@ export default function TouchCameraZone({ onCameraRotate }) {
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [onCameraRotate]);
+  }, [touchCameraRef]);
 
   return null;
 }

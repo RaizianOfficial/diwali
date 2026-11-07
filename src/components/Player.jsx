@@ -24,7 +24,11 @@ export default function Player({
   onToggleJhula, 
   swingTransform,
   swingTransformRef,
-  onNearJhulaChange 
+  onNearJhulaChange,
+  joystickInputRef,
+  touchCameraRef,
+  jumpSignalRef,
+  sprintSignalRef
 }) {
   const playerRef = useRef();
   const characterMeshRef = useRef();
@@ -224,6 +228,44 @@ export default function Player({
   useFrame((_, delta) => {
     if (!playerRef.current) return;
 
+    // 1. Consume Mobile Touch Camera Orbit & Pinch Zoom
+    if (touchCameraRef && touchCameraRef.current) {
+      if (touchCameraRef.current.yaw !== 0) {
+        cameraYaw.current += touchCameraRef.current.yaw;
+        touchCameraRef.current.yaw = 0;
+      }
+      if (touchCameraRef.current.pitch !== 0) {
+        cameraPitch.current = THREE.MathUtils.clamp(
+          cameraPitch.current + touchCameraRef.current.pitch,
+          0.05,
+          1.15
+        );
+        touchCameraRef.current.pitch = 0;
+      }
+      if (touchCameraRef.current.zoom !== 0) {
+        targetCameraDistance.current = THREE.MathUtils.clamp(
+          targetCameraDistance.current + touchCameraRef.current.zoom,
+          3.2,
+          11.0
+        );
+        touchCameraRef.current.zoom = 0;
+      }
+    }
+
+    // 2. Consume Mobile Touch Jump Trigger
+    if (jumpSignalRef && jumpSignalRef.current) {
+      jumpSignalRef.current = false;
+      if (isRidingJhula) {
+        if (onToggleJhula) onToggleJhula(false);
+        position.current.set(JHULA_CENTER[0], 0, JHULA_CENTER[2] - 1.8);
+        verticalVelocity.current = 3.5;
+        isGrounded.current = false;
+      } else if (isGrounded.current) {
+        verticalVelocity.current = 6.2;
+        isGrounded.current = false;
+      }
+    }
+
     // Resolve swing transform reference (ref takes precedence to avoid React state re-renders)
     const currentSwing = (swingTransformRef && swingTransformRef.current) ? swingTransformRef.current : swingTransform;
 
@@ -293,14 +335,25 @@ export default function Player({
     let inputX = 0;
     let inputZ = 0;
 
+    // Keyboard Input (PC)
     if (keys.current.forward) inputZ -= 1;
     if (keys.current.backward) inputZ += 1;
     if (keys.current.left) inputX -= 1;
     if (keys.current.right) inputX += 1;
 
+    // Mobile Virtual Joystick Input (Phones & Tablets)
+    let isJoystickSprint = false;
+    if (joystickInputRef && joystickInputRef.current && joystickInputRef.current.active) {
+      inputX += joystickInputRef.current.x;
+      inputZ -= joystickInputRef.current.y; // Inverted because joystick Y up is forward (-Z)
+      if (joystickInputRef.current.sprint) {
+        isJoystickSprint = true;
+      }
+    }
+
     const inputLen = Math.hypot(inputX, inputZ);
-    const isMoving = inputLen > 0.1;
-    const isSprinting = keys.current.sprint;
+    const isMoving = inputLen > 0.08;
+    const isSprinting = keys.current.sprint || (sprintSignalRef && sprintSignalRef.current) || isJoystickSprint;
     const moveSpeed = isSprinting ? 8.5 : 5.0;
 
     if (isMoving) {

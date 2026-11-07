@@ -65,15 +65,15 @@ DIWALI/
     ├── firebase.js               # [DORMANT] Firebase initialization & Firestore leaderboard subscriber
     ├── components/
     │   ├── MelaScene.jsx         # [ACTIVE] Full 3D environment, lighting, stalls, deepstambha, jhula
-    │   ├── Player.jsx            # [ACTIVE] Character mesh, WASD/Sprint/Jump, Orbit Camera, Collisions
-    │   ├── UI.jsx                # [ACTIVE] PC HUD, Fullscreen toggle, Audio toggle, Swing action prompt
+    │   ├── Player.jsx            # [ACTIVE] Character mesh, WASD/Sprint/Jump, Orbit Camera, Collisions, Mobile Touch Integration
+    │   ├── UI.jsx                # [ACTIVE] Mobile-first HUD, Fullscreen toggle, Audio toggle, Swing action prompt, Help guide
+    │   ├── Joystick.jsx          # [ACTIVE] Mobile virtual floating touch joystick with auto-sprint
+    │   ├── TouchCameraZone.jsx   # [ACTIVE] Mobile 360° swipe camera rotation & two-finger pinch zoom
     │   ├── Billboard.jsx         # [DORMANT] 3D CanvasTexture leaderboard plane (Firestore data)
     │   ├── Firecracker.jsx       # [DORMANT] InstancedMesh particle fireworks (Phuljhadi, Anaar, Chakri, Rocket)
     │   ├── House.jsx             # [LEGACY] GLTF loader wrapper for house model
     │   ├── NPC.jsx               # [LEGACY] GLTF loader wrapper with skeletal animations
     │   ├── Jhula.jsx             # [LEGACY] Old static GLTF jhula wrapper (replaced by FunctionalJhula)
-    │   ├── Joystick.jsx          # [DORMANT] Mobile virtual touch joystick
-    │   ├── TouchCameraZone.jsx   # [DORMANT] Mobile touch swipe camera control
     │   ├── Props.jsx             # [LEGACY] Primitive props collection
     │   └── Scene.jsx             # [LEGACY] Early prototype scene
     └── utils/
