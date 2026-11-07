@@ -12,14 +12,12 @@ import TouchCameraZone from './components/TouchCameraZone';
 export default function App() {
   const [isNearJhula, setIsNearJhula] = useState(false);
   const [isRidingJhula, setIsRidingJhula] = useState(false);
-  const [isSprintActive, setIsSprintActive] = useState(false);
 
   // Shared mutable refs for 60fps inputs & physics (0 React re-renders)
   const swingTransformRef = useRef({ x: -10, y: 1.1, z: 12, angle: 0 });
-  const joystickInputRef = useRef({ x: 0, y: 0, active: false, sprint: false });
+  const joystickInputRef = useRef({ x: 0, y: 0, active: false });
   const touchCameraRef = useRef({ yaw: 0, pitch: 0, zoom: 0 });
   const jumpSignalRef = useRef(false);
-  const sprintSignalRef = useRef(false);
 
   const handleToggleJhula = useCallback((ride) => {
     setIsRidingJhula(ride);
@@ -27,14 +25,6 @@ export default function App() {
 
   const handleJump = useCallback(() => {
     jumpSignalRef.current = true;
-  }, []);
-
-  const handleToggleSprint = useCallback(() => {
-    setIsSprintActive((prev) => {
-      const next = !prev;
-      sprintSignalRef.current = next;
-      return next;
-    });
   }, []);
 
   return (
@@ -66,7 +56,6 @@ export default function App() {
           joystickInputRef={joystickInputRef}
           touchCameraRef={touchCameraRef}
           jumpSignalRef={jumpSignalRef}
-          sprintSignalRef={sprintSignalRef}
         />
       </Canvas>
 
@@ -79,8 +68,6 @@ export default function App() {
         isRidingJhula={isRidingJhula}
         onToggleJhula={handleToggleJhula}
         onJump={handleJump}
-        isSprintActive={isSprintActive}
-        onToggleSprint={handleToggleSprint}
         joystickInputRef={joystickInputRef}
       />
     </div>

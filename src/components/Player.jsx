@@ -28,7 +28,6 @@ export default function Player({
   joystickInputRef,
   touchCameraRef,
   jumpSignalRef,
-  sprintSignalRef
 }) {
   const playerRef = useRef();
   const characterMeshRef = useRef();
@@ -48,7 +47,6 @@ export default function Player({
     backward: false,
     left: false,
     right: false,
-    sprint: false,
     jump: false
   });
 
@@ -136,10 +134,6 @@ export default function Player({
         case 'ArrowRight':
           keys.current.right = true;
           break;
-        case 'ShiftLeft':
-        case 'ShiftRight':
-          keys.current.sprint = true;
-          break;
         default:
           break;
       }
@@ -162,10 +156,6 @@ export default function Player({
         case 'KeyD':
         case 'ArrowRight':
           keys.current.right = false;
-          break;
-        case 'ShiftLeft':
-        case 'ShiftRight':
-          keys.current.sprint = false;
           break;
         default:
           break;
@@ -375,19 +365,14 @@ export default function Player({
     if (keys.current.right) inputX += 1;
 
     // Mobile Virtual Joystick Input (Phones & Tablets)
-    let isJoystickSprint = false;
     if (joystickInputRef && joystickInputRef.current && joystickInputRef.current.active) {
       inputX += joystickInputRef.current.x;
-      inputZ -= joystickInputRef.current.y; // Inverted because joystick Y up is forward (-Z)
-      if (joystickInputRef.current.sprint) {
-        isJoystickSprint = true;
-      }
+      inputZ -= joystickInputRef.current.y;
     }
 
     const inputLen = Math.hypot(inputX, inputZ);
     const isMoving = inputLen > 0.08;
-    const isSprinting = keys.current.sprint || (sprintSignalRef && sprintSignalRef.current) || isJoystickSprint;
-    const moveSpeed = isSprinting ? 8.5 : 5.0;
+    const moveSpeed = 4.8;
 
     if (isMoving) {
       const normX = inputX / inputLen;
@@ -406,7 +391,7 @@ export default function Player({
       velocity.current.x = moveDir.x * moveSpeed;
       velocity.current.z = moveDir.z * moveSpeed;
 
-      walkCycle.current += delta * (isSprinting ? 14 : 9.5);
+      walkCycle.current += delta * 7.5;
     } else {
       velocity.current.x = THREE.MathUtils.damp(velocity.current.x, 0, 12, delta);
       velocity.current.z = THREE.MathUtils.damp(velocity.current.z, 0, 12, delta);
@@ -457,8 +442,8 @@ export default function Player({
     // Procedural Walking / Running Animations (Smoothed, jitter-free bounce)
     if (isMoving) {
       const walk = walkCycle.current;
-      const legAmp = isSprinting ? 0.72 : 0.52;
-      const armAmp = isSprinting ? 0.65 : 0.45;
+      const legAmp = 0.36;
+      const armAmp = 0.42;
 
       if (leftLegRef.current && rightLegRef.current) {
         leftLegRef.current.rotation.x = Math.sin(walk) * legAmp;
@@ -473,9 +458,9 @@ export default function Player({
         rightArmRef.current.rotation.z = 0;
       }
       if (torsoRef.current) {
-        const bounce = Math.abs(Math.sin(walk * 2)) * (isSprinting ? 0.045 : 0.025);
-        torsoRef.current.position.y = 0.65 + bounce;
-        torsoRef.current.rotation.x = isSprinting ? 0.10 : 0.04;
+        const bounce = 0;
+        torsoRef.current.position.y = 0.65;
+        torsoRef.current.rotation.x = 0.04;
         torsoRef.current.rotation.z = -velocity.current.x * 0.01;
       }
       if (headRef.current) {
@@ -703,3 +688,8 @@ export default function Player({
     </group>
   );
 }
+
+
+
+
+
