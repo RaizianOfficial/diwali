@@ -84,7 +84,8 @@ export default function Player({
         if (isRidingJhula) {
           // Dismount: Land safely in FRONT of the swing (+Z)
           if (onToggleJhula) onToggleJhula(false);
-          position.current.set(JHULA_CENTER[0], 0, JHULA_CENTER[2] + 2.0);
+          if (playerRef.current) playerRef.current.quaternion.identity();
+          position.current.set(JHULA_CENTER[0], 0, JHULA_CENTER[2] + 2.2);
           if (characterMeshRef.current) {
             characterMeshRef.current.position.set(0, 0, 0);
             characterMeshRef.current.rotation.set(0, currentRotationY.current, 0);
@@ -101,7 +102,8 @@ export default function Player({
         if (isRidingJhula) {
           if (onToggleJhula) onToggleJhula(false);
           // Jump off in front of the swing (+Z)
-          position.current.set(JHULA_CENTER[0], 0, JHULA_CENTER[2] + 2.0);
+          if (playerRef.current) playerRef.current.quaternion.identity();
+          position.current.set(JHULA_CENTER[0], 0, JHULA_CENTER[2] + 2.2);
           verticalVelocity.current = 4.2;
           isGrounded.current = false;
           if (characterMeshRef.current) {
@@ -267,7 +269,9 @@ export default function Player({
       if (isRidingJhula) {
         if (onToggleJhula) onToggleJhula(false);
         // Land in front of the swing (+Z)
-        position.current.set(JHULA_CENTER[0], 0, JHULA_CENTER[2] + 2.0);
+        if (playerRef.current) playerRef.current.quaternion.identity();
+        position.current.set(JHULA_CENTER[0], 0, JHULA_CENTER[2] + 2.2);
+        playerRef.current.position.copy(position.current);
         verticalVelocity.current = 4.2;
         isGrounded.current = false;
         if (characterMeshRef.current) {
@@ -287,54 +291,49 @@ export default function Player({
     // CASE A: PLAYER RIDING THE SWING (JHULA)
     // ==========================================
     if (isRidingJhula && currentSwing) {
-      // Snap player root so hips rest firmly on top of velvet cushion
-      // Character hips are at y = 0.55 above player root, so seat cushion is matched at swing.y
-      position.current.x = currentSwing.x;
-      position.current.y = currentSwing.y - 0.52;
-      position.current.z = currentSwing.z;
+      // 1. Position player root at seat mount
+      position.current.set(currentSwing.x, currentSwing.y, currentSwing.z);
+      playerRef.current.position.copy(position.current);
 
-      playerRef.current.position.set(position.current.x, position.current.y, position.current.z);
+      // 2. Exact world orientation copied from seat cushion
+      if (currentSwing.quaternion) {
+        playerRef.current.quaternion.copy(currentSwing.quaternion);
+      }
 
+      // 3. Lower character mesh so hips/buttocks rest squarely on the velvet cushion
+      // Hips are at y = 0.55 in local coordinates, so lowering by -0.52 places buttocks on cushion
       if (characterMeshRef.current) {
-        // Face forward on swing (+Z direction, y = 0)
-        characterMeshRef.current.rotation.y = 0;
-        // Tilt synchronously with pendulum swing angle (exact match, no inverted sign!)
-        characterMeshRef.current.rotation.x = currentSwing.angle;
-        // Sit firmly against the backrest
-        characterMeshRef.current.position.set(0, 0, -0.12);
+        characterMeshRef.current.position.set(0, -0.52, 0);
+        characterMeshRef.current.rotation.set(0, 0, 0);
       }
 
-      // Sitting Pose: Thighs extend forward, dangling lower legs sway with pendulum inertia
+      // 4. Sitting Leg Pose:
+      // Legs extend FORWARD over the cushion (negative X rotation rotates -Y forward into +Z)
       if (leftLegRef.current && rightLegRef.current) {
-        const legPitch = 1.48 - currentSwing.angle * 0.45;
-        leftLegRef.current.rotation.x = legPitch;
-        rightLegRef.current.rotation.x = legPitch;
-        leftLegRef.current.rotation.z = -0.06;
-        rightLegRef.current.rotation.z = 0.06;
+        // -1.42 rad (~82 deg forward), dangling naturally over the front cushion edge
+        const legPitch = -1.42 - (currentSwing.angle || 0) * 0.2;
+        leftLegRef.current.rotation.set(legPitch, 0, -0.06);
+        rightLegRef.current.rotation.set(legPitch, 0, 0.06);
       }
 
-      // Hands holding swing chains securely on left and right
+      // 5. Arms Pose:
+      // Arms reach forward and outwards to grasp the brass chains on the sides
       if (leftArmRef.current && rightArmRef.current) {
-        leftArmRef.current.rotation.x = -1.22;
-        leftArmRef.current.rotation.z = -0.36; // Left hand reaches out to left brass chain
-        rightArmRef.current.rotation.x = -1.22;
-        rightArmRef.current.rotation.z = 0.36; // Right hand reaches out to right brass chain
+        leftArmRef.current.rotation.set(-0.75, 0, -0.42);
+        rightArmRef.current.rotation.set(-0.75, 0, 0.42);
       }
 
-      // Torso comfortable upright
+      // 6. Upright Torso & Head
       if (torsoRef.current) {
         torsoRef.current.position.y = 0.65;
-        torsoRef.current.rotation.x = 0.06;
-        torsoRef.current.rotation.z = 0;
+        torsoRef.current.rotation.set(0, 0, 0);
       }
-
-      // Head looking forward enjoying the swing
       if (headRef.current) {
-        headRef.current.rotation.x = -currentSwing.angle * 0.35;
+        headRef.current.rotation.set(0, 0, 0);
       }
 
       // Smooth Camera tracking while on swing
-      const swingTargetY = position.current.y + 1.1;
+      const swingTargetY = position.current.y + 0.9;
       const smoothLookAlpha = 1 - Math.exp(-12 * delta);
       cameraTarget.current.x = THREE.MathUtils.lerp(cameraTarget.current.x, position.current.x, smoothLookAlpha);
       cameraTarget.current.y = THREE.MathUtils.lerp(cameraTarget.current.y, swingTargetY, smoothLookAlpha);
@@ -440,6 +439,7 @@ export default function Player({
     position.current.z = THREE.MathUtils.clamp(resolved.z, MELA_BOUNDS.minZ, MELA_BOUNDS.maxZ);
 
     playerRef.current.position.set(position.current.x, position.current.y, position.current.z);
+    playerRef.current.quaternion.identity();
 
     // Smooth character rotation towards movement direction
     let angleDiff = targetRotationY.current - currentRotationY.current;
@@ -448,8 +448,10 @@ export default function Player({
     currentRotationY.current += angleDiff * Math.min(delta * 14, 1);
 
     if (characterMeshRef.current) {
+      characterMeshRef.current.position.set(0, 0, 0);
       characterMeshRef.current.rotation.y = currentRotationY.current;
       characterMeshRef.current.rotation.x = 0;
+      characterMeshRef.current.rotation.z = 0;
     }
 
     // Procedural Walking / Running Animations (Smoothed, jitter-free bounce)
@@ -461,10 +463,14 @@ export default function Player({
       if (leftLegRef.current && rightLegRef.current) {
         leftLegRef.current.rotation.x = Math.sin(walk) * legAmp;
         rightLegRef.current.rotation.x = -Math.sin(walk) * legAmp;
+        leftLegRef.current.rotation.z = 0;
+        rightLegRef.current.rotation.z = 0;
       }
       if (leftArmRef.current && rightArmRef.current) {
         leftArmRef.current.rotation.x = -Math.sin(walk) * armAmp;
         rightArmRef.current.rotation.x = (Math.sin(walk) * armAmp * 0.3) - 0.22;
+        leftArmRef.current.rotation.z = 0;
+        rightArmRef.current.rotation.z = 0;
       }
       if (torsoRef.current) {
         const bounce = Math.abs(Math.sin(walk * 2)) * (isSprinting ? 0.045 : 0.025);
@@ -486,10 +492,14 @@ export default function Player({
       if (leftLegRef.current && rightLegRef.current) {
         leftLegRef.current.rotation.x = THREE.MathUtils.lerp(leftLegRef.current.rotation.x, 0, 0.2);
         rightLegRef.current.rotation.x = THREE.MathUtils.lerp(rightLegRef.current.rotation.x, 0, 0.2);
+        leftLegRef.current.rotation.z = THREE.MathUtils.lerp(leftLegRef.current.rotation.z, 0, 0.2);
+        rightLegRef.current.rotation.z = THREE.MathUtils.lerp(rightLegRef.current.rotation.z, 0, 0.2);
       }
       if (leftArmRef.current && rightArmRef.current) {
         leftArmRef.current.rotation.x = THREE.MathUtils.lerp(leftArmRef.current.rotation.x, breath * 0.04, 0.1);
         rightArmRef.current.rotation.x = THREE.MathUtils.lerp(rightArmRef.current.rotation.x, -0.22, 0.1);
+        leftArmRef.current.rotation.z = THREE.MathUtils.lerp(leftArmRef.current.rotation.z, 0, 0.1);
+        rightArmRef.current.rotation.z = THREE.MathUtils.lerp(rightArmRef.current.rotation.z, 0, 0.1);
       }
       if (headRef.current) {
         headRef.current.rotation.x = breath * 0.025;

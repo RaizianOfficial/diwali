@@ -16,6 +16,7 @@ export function FunctionalJhula({ isPlayerRiding = false, onSwingTransformUpdate
   const pivotRef = useRef();
   const seatRef = useRef();
   const worldPos = useRef(new THREE.Vector3());
+  const worldQuat = useRef(new THREE.Quaternion());
 
   useFrame((state) => {
     if (!pivotRef.current) return;
@@ -32,23 +33,26 @@ export function FunctionalJhula({ isPlayerRiding = false, onSwingTransformUpdate
 
     if (seatRef.current) {
       seatRef.current.getWorldPosition(worldPos.current);
+      seatRef.current.getWorldQuaternion(worldQuat.current);
     }
 
     // Direct update to mutable ref (prevents React 60fps re-render storms)
     if (swingTransformRef && swingTransformRef.current) {
       swingTransformRef.current.x = worldPos.current.x;
-      swingTransformRef.current.y = worldPos.current.y + 0.1; // Top of cushion
+      swingTransformRef.current.y = worldPos.current.y;
       swingTransformRef.current.z = worldPos.current.z;
       swingTransformRef.current.angle = angle;
+      swingTransformRef.current.quaternion = worldQuat.current;
     }
 
     // Optional callback for external listeners
     if (onSwingTransformUpdate) {
       onSwingTransformUpdate({
         x: worldPos.current.x,
-        y: worldPos.current.y + 0.1,
+        y: worldPos.current.y,
         z: worldPos.current.z,
-        angle: angle
+        angle: angle,
+        quaternion: worldQuat.current
       });
     }
   });
@@ -118,8 +122,8 @@ export function FunctionalJhula({ isPlayerRiding = false, onSwingTransformUpdate
           </group>
         ))}
 
-        {/* Velvet & Carved Wood Swing Seat (Tracked precisely via seatRef) */}
-        <group ref={seatRef} position={[0, -2.5, 0]}>
+        {/* Velvet & Carved Wood Swing Seat */}
+        <group position={[0, -2.5, 0]}>
           {/* Wooden Bench Base */}
           <mesh castShadow receiveShadow>
             <boxGeometry args={[2.3, 0.14, 0.95]} />
@@ -143,6 +147,9 @@ export function FunctionalJhula({ isPlayerRiding = false, onSwingTransformUpdate
             <boxGeometry args={[2.2, 0.7, 0.08]} />
             <meshStandardMaterial color="#4E2712" roughness={0.6} />
           </mesh>
+
+          {/* Exact Rider Seat Mount Position (Top of cushion, sitting forward) */}
+          <group ref={seatRef} position={[0, 0.15, -0.05]} />
         </group>
       </group>
 
