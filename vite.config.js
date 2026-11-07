@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    open: true
+    host: true, // Expose to local network for mobile phone access
+    open: false
   }
 });
