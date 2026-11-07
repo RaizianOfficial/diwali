@@ -12,7 +12,7 @@ export const JHULA_CENTER = [-10, 0, 12];
  * - Real wooden A-frame, brass chains, and embroidered velvet seat
  * - Supports mounting / sitting
  */
-export function FunctionalJhula({ isPlayerRiding = false, onSwingTransformUpdate }) {
+export function FunctionalJhula({ isPlayerRiding = false, onSwingTransformUpdate, swingTransformRef }) {
   const pivotRef = useRef();
 
   useFrame((state) => {
@@ -26,12 +26,20 @@ export function FunctionalJhula({ isPlayerRiding = false, onSwingTransformUpdate
 
     pivotRef.current.rotation.x = angle;
 
-    // Report seat transform for mounting player character
+    const ropeLength = 2.5;
+    const seatY = 3.6 - Math.cos(angle) * ropeLength;
+    const seatZ = JHULA_CENTER[2] + Math.sin(angle) * ropeLength;
+
+    // Direct update to mutable ref (prevents React 60fps re-render storms)
+    if (swingTransformRef && swingTransformRef.current) {
+      swingTransformRef.current.x = JHULA_CENTER[0];
+      swingTransformRef.current.y = seatY;
+      swingTransformRef.current.z = seatZ;
+      swingTransformRef.current.angle = angle;
+    }
+
+    // Optional callback for external listeners
     if (onSwingTransformUpdate) {
-      // Pivot is at y=3.6. Rope length is 2.5m.
-      const ropeLength = 2.5;
-      const seatY = 3.6 - Math.cos(angle) * ropeLength;
-      const seatZ = JHULA_CENTER[2] + Math.sin(angle) * ropeLength;
       onSwingTransformUpdate({
         x: JHULA_CENTER[0],
         y: seatY,
@@ -448,7 +456,11 @@ function OverheadGarlands() {
 /**
  * Main Mela Scene Export
  */
-export default function MelaScene({ isPlayerRidingJhula = false, onSwingTransformUpdate }) {
+export default function MelaScene({ 
+  isPlayerRidingJhula = false, 
+  onSwingTransformUpdate,
+  swingTransformRef 
+}) {
   return (
     <>
       {/* Sky & Atmosphere */}
@@ -532,7 +544,8 @@ export default function MelaScene({ isPlayerRidingJhula = false, onSwingTransfor
       {/* Functional Interactive Swing (Jhula) */}
       <FunctionalJhula 
         isPlayerRiding={isPlayerRidingJhula} 
-        onSwingTransformUpdate={onSwingTransformUpdate} 
+        onSwingTransformUpdate={onSwingTransformUpdate}
+        swingTransformRef={swingTransformRef} 
       />
 
       {/* Overhead Garlands */}

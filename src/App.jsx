@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import MelaScene from './components/MelaScene';
 import Player from './components/Player';
@@ -6,12 +6,14 @@ import UI from './components/UI';
 
 /**
  * 3D Diwali Mela Experience with Solid Collisions & Functional Interactive Jhula
+ * High-performance 60fps loop with zero per-frame React state re-rendering
  */
 export default function App() {
-  const [playerPosition, setPlayerPosition] = useState([0, 0, 10]);
   const [isNearJhula, setIsNearJhula] = useState(false);
   const [isRidingJhula, setIsRidingJhula] = useState(false);
-  const [swingTransform, setSwingTransform] = useState(null);
+
+  // Shared mutable ref for 60fps swing physics (prevents 60Hz React re-render thrashing)
+  const swingTransformRef = useRef({ x: -10, y: 1.1, z: 12, angle: 0 });
 
   const handleToggleJhula = useCallback((ride) => {
     setIsRidingJhula(ride);
@@ -34,15 +36,14 @@ export default function App() {
         {/* Festive Diwali Mela Scene with Functional Jhula */}
         <MelaScene 
           isPlayerRidingJhula={isRidingJhula}
-          onSwingTransformUpdate={setSwingTransform}
+          swingTransformRef={swingTransformRef}
         />
 
-        {/* Player with Wall-Sliding Collisions & Swing Mounting */}
+        {/* Player with Wall-Sliding Collisions, Smooth Camera & Swing Mounting */}
         <Player 
-          onPositionChange={setPlayerPosition}
           isRidingJhula={isRidingJhula}
           onToggleJhula={handleToggleJhula}
-          swingTransform={swingTransform}
+          swingTransformRef={swingTransformRef}
           onNearJhulaChange={setIsNearJhula}
         />
       </Canvas>

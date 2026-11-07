@@ -23,6 +23,7 @@ export default function Player({
   isRidingJhula = false, 
   onToggleJhula, 
   swingTransform,
+  swingTransformRef,
   onNearJhulaChange 
 }) {
   const playerRef = useRef();
@@ -63,6 +64,7 @@ export default function Player({
   const cameraPitch = useRef(0.28);
   const cameraDistance = useRef(5.8);
   const targetCameraDistance = useRef(5.8);
+  const cameraTarget = useRef(new THREE.Vector3(0, 1.25, 10)); // Ultra-smooth lookAt target anchor
   const isDraggingMouse = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
 
@@ -222,26 +224,29 @@ export default function Player({
   useFrame((_, delta) => {
     if (!playerRef.current) return;
 
+    // Resolve swing transform reference (ref takes precedence to avoid React state re-renders)
+    const currentSwing = (swingTransformRef && swingTransformRef.current) ? swingTransformRef.current : swingTransform;
+
     // ==========================================
     // CASE A: PLAYER RIDING THE SWING (JHULA)
     // ==========================================
-    if (isRidingJhula && swingTransform) {
+    if (isRidingJhula && currentSwing) {
       // Snap player to swing seat position
-      position.current.x = swingTransform.x;
-      position.current.y = swingTransform.y + 0.15; // Seat elevation
-      position.current.z = swingTransform.z;
+      position.current.x = currentSwing.x;
+      position.current.y = currentSwing.y + 0.15; // Seat elevation
+      position.current.z = currentSwing.z;
 
       playerRef.current.position.set(position.current.x, position.current.y, position.current.z);
 
       if (characterMeshRef.current) {
         // Face forward on swing + tilt with pendulum swing angle
         characterMeshRef.current.rotation.y = 0;
-        characterMeshRef.current.rotation.x = swingTransform.angle * 0.85;
+        characterMeshRef.current.rotation.x = currentSwing.angle * 0.85;
       }
 
       // Sitting Pose: Legs dangling forward with inertia
       if (leftLegRef.current && rightLegRef.current) {
-        const legSway = 1.35 - swingTransform.angle * 0.9;
+        const legSway = 1.35 - currentSwing.angle * 0.9;
         leftLegRef.current.rotation.x = legSway;
         rightLegRef.current.rotation.x = legSway;
       }
@@ -253,22 +258,28 @@ export default function Player({
       }
 
       // Smooth Camera tracking while on swing
-      cameraDistance.current = THREE.MathUtils.lerp(cameraDistance.current, 5.2, 0.1);
+      const swingTargetY = position.current.y + 1.1;
+      const smoothLookAlpha = 1 - Math.exp(-12 * delta);
+      cameraTarget.current.x = THREE.MathUtils.lerp(cameraTarget.current.x, position.current.x, smoothLookAlpha);
+      cameraTarget.current.y = THREE.MathUtils.lerp(cameraTarget.current.y, swingTargetY, smoothLookAlpha);
+      cameraTarget.current.z = THREE.MathUtils.lerp(cameraTarget.current.z, position.current.z, smoothLookAlpha);
+
+      cameraDistance.current = THREE.MathUtils.damp(cameraDistance.current, 5.2, 8, delta);
       const dist = cameraDistance.current;
       const pitch = cameraPitch.current;
       const yaw = cameraYaw.current;
 
       const offsetX = Math.sin(yaw) * Math.cos(pitch) * dist;
-      const offsetY = Math.sin(pitch) * dist + 1.2;
+      const offsetY = Math.sin(pitch) * dist;
       const offsetZ = Math.cos(yaw) * Math.cos(pitch) * dist;
 
-      const targetCameraPos = new THREE.Vector3(
-        position.current.x + offsetX,
-        position.current.y + offsetY,
-        position.current.z + offsetZ
+      const desiredCamPos = new THREE.Vector3(
+        cameraTarget.current.x + offsetX,
+        cameraTarget.current.y + offsetY,
+        cameraTarget.current.z + offsetZ
       );
-      camera.position.lerp(targetCameraPos, 0.1);
-      camera.lookAt(new THREE.Vector3(position.current.x, position.current.y + 1.1, position.current.z));
+      camera.position.lerp(desiredCamPos, 1 - Math.exp(-14 * delta));
+      camera.lookAt(cameraTarget.current);
 
       if (onPositionChange) {
         onPositionChange([position.current.x, position.current.y, position.current.z]);
@@ -354,7 +365,7 @@ export default function Player({
       characterMeshRef.current.rotation.x = 0;
     }
 
-    // Procedural Walking / Running Animations
+    // Procedural Walking / Running Animations (Smoothed, jitter-free bounce)
     if (isMoving) {
       const walk = walkCycle.current;
       const legAmp = isSprinting ? 0.72 : 0.52;
@@ -369,13 +380,13 @@ export default function Player({
         rightArmRef.current.rotation.x = (Math.sin(walk) * armAmp * 0.3) - 0.22;
       }
       if (torsoRef.current) {
-        const bounce = Math.abs(Math.sin(walk * 2)) * (isSprinting ? 0.12 : 0.08);
+        const bounce = Math.abs(Math.sin(walk * 2)) * (isSprinting ? 0.045 : 0.025);
         torsoRef.current.position.y = 0.65 + bounce;
-        torsoRef.current.rotation.x = isSprinting ? 0.14 : 0.06;
-        torsoRef.current.rotation.z = -velocity.current.x * 0.015;
+        torsoRef.current.rotation.x = isSprinting ? 0.10 : 0.04;
+        torsoRef.current.rotation.z = -velocity.current.x * 0.01;
       }
       if (headRef.current) {
-        headRef.current.rotation.x = Math.sin(walk * 2) * 0.04;
+        headRef.current.rotation.x = Math.sin(walk * 2) * 0.02;
       }
     } else {
       // Idle Breathing
@@ -421,29 +432,37 @@ export default function Player({
       onPositionChange([position.current.x, position.current.y, position.current.z]);
     }
 
-    // Third-Person Spring Camera Follow
-    cameraDistance.current = THREE.MathUtils.lerp(cameraDistance.current, targetCameraDistance.current, 0.1);
+    // ==========================================
+    // BUTTER-SMOOTH THIRD-PERSON ORBIT CAMERA
+    // ==========================================
+    // 1. Smoothly interpolate the anchor look-at target to eliminate rotational micro-stutters
+    const targetLookY = position.current.y + 1.25;
+    const lookAlpha = 1 - Math.exp(-14 * delta);
+    cameraTarget.current.x = THREE.MathUtils.lerp(cameraTarget.current.x, position.current.x, lookAlpha);
+    cameraTarget.current.y = THREE.MathUtils.lerp(cameraTarget.current.y, targetLookY, lookAlpha);
+    cameraTarget.current.z = THREE.MathUtils.lerp(cameraTarget.current.z, position.current.z, lookAlpha);
+
+    // 2. Framerate-independent zoom damping
+    cameraDistance.current = THREE.MathUtils.damp(cameraDistance.current, targetCameraDistance.current, 10, delta);
     const dist = cameraDistance.current;
     const pitch = cameraPitch.current;
     const yaw = cameraYaw.current;
 
     const offsetX = Math.sin(yaw) * Math.cos(pitch) * dist;
-    const offsetY = Math.sin(pitch) * dist + 1.2;
+    const offsetY = Math.sin(pitch) * dist;
     const offsetZ = Math.cos(yaw) * Math.cos(pitch) * dist;
 
-    const targetCameraPos = new THREE.Vector3(
-      position.current.x + offsetX,
-      position.current.y + offsetY,
-      position.current.z + offsetZ
+    // 3. Anchor camera position directly to the smoothed cameraTarget
+    const desiredCameraPos = new THREE.Vector3(
+      cameraTarget.current.x + offsetX,
+      cameraTarget.current.y + offsetY,
+      cameraTarget.current.z + offsetZ
     );
-    camera.position.lerp(targetCameraPos, 0.1);
 
-    const lookTarget = new THREE.Vector3(
-      position.current.x,
-      position.current.y + 1.25,
-      position.current.z
-    );
-    camera.lookAt(lookTarget);
+    // 4. Smooth camera positional interpolation
+    const camAlpha = 1 - Math.exp(-14 * delta);
+    camera.position.lerp(desiredCameraPos, camAlpha);
+    camera.lookAt(cameraTarget.current);
   });
 
   return (
