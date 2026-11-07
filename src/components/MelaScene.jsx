@@ -14,6 +14,8 @@ export const JHULA_CENTER = [-10, 0, 12];
  */
 export function FunctionalJhula({ isPlayerRiding = false, onSwingTransformUpdate, swingTransformRef }) {
   const pivotRef = useRef();
+  const seatRef = useRef();
+  const worldPos = useRef(new THREE.Vector3());
 
   useFrame((state) => {
     if (!pivotRef.current) return;
@@ -25,25 +27,27 @@ export function FunctionalJhula({ isPlayerRiding = false, onSwingTransformUpdate
     const angle = Math.sin(time * frequency) * amplitude;
 
     pivotRef.current.rotation.x = angle;
+    // Force immediate world matrix update to ensure exact synchronous seat tracking
+    pivotRef.current.updateMatrixWorld(true);
 
-    const ropeLength = 2.5;
-    const seatY = 3.6 - Math.cos(angle) * ropeLength;
-    const seatZ = JHULA_CENTER[2] + Math.sin(angle) * ropeLength;
+    if (seatRef.current) {
+      seatRef.current.getWorldPosition(worldPos.current);
+    }
 
     // Direct update to mutable ref (prevents React 60fps re-render storms)
     if (swingTransformRef && swingTransformRef.current) {
-      swingTransformRef.current.x = JHULA_CENTER[0];
-      swingTransformRef.current.y = seatY;
-      swingTransformRef.current.z = seatZ;
+      swingTransformRef.current.x = worldPos.current.x;
+      swingTransformRef.current.y = worldPos.current.y + 0.1; // Top of cushion
+      swingTransformRef.current.z = worldPos.current.z;
       swingTransformRef.current.angle = angle;
     }
 
     // Optional callback for external listeners
     if (onSwingTransformUpdate) {
       onSwingTransformUpdate({
-        x: JHULA_CENTER[0],
-        y: seatY,
-        z: seatZ,
+        x: worldPos.current.x,
+        y: worldPos.current.y + 0.1,
+        z: worldPos.current.z,
         angle: angle
       });
     }
@@ -114,8 +118,8 @@ export function FunctionalJhula({ isPlayerRiding = false, onSwingTransformUpdate
           </group>
         ))}
 
-        {/* Velvet & Carved Wood Swing Seat */}
-        <group position={[0, -2.5, 0]}>
+        {/* Velvet & Carved Wood Swing Seat (Tracked precisely via seatRef) */}
+        <group ref={seatRef} position={[0, -2.5, 0]}>
           {/* Wooden Bench Base */}
           <mesh castShadow receiveShadow>
             <boxGeometry args={[2.3, 0.14, 0.95]} />

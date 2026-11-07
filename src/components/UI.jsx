@@ -150,24 +150,6 @@ export default function UI({
       </header>
 
       {/* ========================================= */}
-      {/* CENTER INTERACTIVE STATUS NOTIFICATION    */}
-      {/* ========================================= */}
-      <div className="self-center pointer-events-auto flex flex-col items-center gap-2">
-        {isRidingJhula && (
-          <div className="bg-gradient-to-r from-red-600/90 to-amber-600/90 backdrop-blur-md text-white font-bold text-xs sm:text-sm px-4 sm:px-6 py-2 rounded-full shadow-2xl border border-yellow-300 flex items-center gap-2 animate-bounce">
-            <span className="text-base sm:text-lg">🎡</span>
-            <span>Riding Jhula! Press Jump or Get Off</span>
-            <button 
-              onClick={() => onToggleJhula(false)}
-              className="ml-1 sm:ml-2 px-2.5 py-0.5 sm:px-3 sm:py-1 bg-white text-slate-950 text-xs font-black rounded-full hover:bg-yellow-200 active:scale-95"
-            >
-              Get Off
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* ========================================= */}
       {/* BOTTOM CONTROLS DECK (MOBILE-FIRST)       */}
       {/* ========================================= */}
       <div className="w-full flex items-end justify-between pointer-events-none pb-1 sm:pb-3">
@@ -177,22 +159,25 @@ export default function UI({
           <Joystick joystickInputRef={joystickInputRef} />
         </div>
 
-        {/* BOTTOM RIGHT: Mobile Action Buttons */}
+        {/* BOTTOM RIGHT: Mobile Action Buttons (All controls cleanly on the side) */}
         <div className="pointer-events-auto flex flex-col items-end gap-3 pr-1 sm:pr-4 select-none">
           
-          {/* Contextual Swing Button (Appears when near Jhula OR riding) */}
+          {/* Side Contextual Swing Action Button (Near Jhula OR Riding Jhula) */}
           {(isNearJhula || isRidingJhula) && (
             <button
               onClick={() => onToggleJhula(!isRidingJhula)}
               data-no-swipe="true"
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-full shadow-2xl font-black text-xs sm:text-sm border-2 transition active:scale-90 ${
+              className={`flex items-center gap-2 px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl shadow-2xl font-black text-xs sm:text-sm border-2 transition active:scale-90 ${
                 isRidingJhula
-                  ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white border-yellow-300 animate-pulse'
-                  : 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 border-white animate-bounce glow-gold'
+                  ? 'bg-gradient-to-r from-rose-600 via-red-500 to-amber-600 text-white border-yellow-300 shadow-rose-900/50 animate-pulse'
+                  : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 border-white shadow-amber-500/50 glow-gold animate-bounce'
               }`}
             >
-              <span className="text-lg">🎡</span>
-              <span>{isRidingJhula ? 'Get Off Swing' : 'Ride Jhula [E]'}</span>
+              <span className="text-xl sm:text-2xl">🎡</span>
+              <div className="flex flex-col text-left">
+                <span className="leading-tight">{isRidingJhula ? 'Get Off Swing' : 'Ride Jhula'}</span>
+                <span className="text-[10px] opacity-80 font-normal leading-tight">{isRidingJhula ? 'Press Space or Tap' : 'Press [E] or Tap'}</span>
+              </div>
             </button>
           )}
 

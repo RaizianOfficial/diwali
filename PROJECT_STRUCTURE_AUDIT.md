@@ -187,17 +187,17 @@ Rather than relying on heavy physics engines (Ammo.js or Rapier) which increase 
 ---
 
 ### C. Interactive Functional Jhula (`src/components/MelaScene.jsx` & `Player.jsx`)
-- **Physics**: Real harmonic pendulum motion:
+- **Physics**: Real harmonic pendulum motion with exact world-matrix synchronization:
   $$\theta(t) = A \cdot \sin(\omega \cdot t)$$
   Where $A = 0.28\text{ rad}$ (idle) or $0.44\text{ rad}$ (when player rides), and $\omega = 1.9\text{ rad/s}$.
-- **Seat Kinematics**:
-  $$Y_{\text{seat}} = Y_{\text{pivot}} - L \cdot \cos(\theta), \quad Z_{\text{seat}} = Z_{\text{pivot}} + L \cdot \sin(\theta)$$
-  With $L = 2.5\text{m}$ (brass chains) and $Y_{\text{pivot}} = 3.6\text{m}$.
-- **Riding State Transition**:
-  1. Walking near the jhula ($d < 2.8\text{m}$) triggers the UI prompt.
-  2. Pressing `[E]` sets `isRidingJhula = true`.
-  3. `Player.jsx` enters **CASE A**: snaps character root to seat coordinates, tilts body with pendulum angle, angles legs forward with simulated inertia, and locks hands to brass chains.
-  4. Pressing `[E]` or `[Space]` dismounts the player safely in front of the swing with an optional jump boost.
+- **Matrix-Accurate Seat Kinematics**:
+  Rather than approximate trigonometry that suffered from sign flips, the seat cushion now mounts a dedicated Three.js reference (`seatRef`). Each frame `pivotRef.updateMatrixWorld(true)` computes the exact 4x4 transform, and `seatRef.getWorldPosition(worldPos)` reports the 100% exact world coordinates of the velvet cushion.
+- **Synchronous Riding & Sitting Mechanics**:
+  - The character root is snapped down by $0.48\text{m}$ to align the buttocks and lower kurta flairs flush against the red velvet cushion (eliminating floating mid-air).
+  - Character tilt matches the pendulum angle $\theta(t)$ synchronously (eliminating inverted "vice-versa" motion).
+  - Legs are angled forward with dynamic inertia ($1.48 - \theta \cdot 0.45$), dangling off the front of the seat cushion.
+  - Arms angle outwards and forward ($-1.22\text{ rad}$ pitch, $\pm 0.36\text{ rad}$ roll) naturally gripping the left and right brass chains.
+  - Dismounting with `[E]` or `[Space]` lands the player safely in front of the swing at $+Z$ (`JHULA_CENTER[2] + 2.0`), avoiding clipping into the backrest.
 
 ---
 

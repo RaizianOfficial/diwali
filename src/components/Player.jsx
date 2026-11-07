@@ -82,9 +82,13 @@ export default function Player({
       // [E] Key: Mount / Dismount Swing
       if (e.code === 'KeyE') {
         if (isRidingJhula) {
-          // Dismount
+          // Dismount: Land safely in FRONT of the swing (+Z)
           if (onToggleJhula) onToggleJhula(false);
-          position.current.set(JHULA_CENTER[0], 0, JHULA_CENTER[2] - 1.8);
+          position.current.set(JHULA_CENTER[0], 0, JHULA_CENTER[2] + 2.0);
+          if (characterMeshRef.current) {
+            characterMeshRef.current.position.set(0, 0, 0);
+            characterMeshRef.current.rotation.set(0, currentRotationY.current, 0);
+          }
         } else if (isNearJhulaRef.current) {
           // Mount
           if (onToggleJhula) onToggleJhula(true);
@@ -96,9 +100,14 @@ export default function Player({
       if (e.code === 'Space') {
         if (isRidingJhula) {
           if (onToggleJhula) onToggleJhula(false);
-          position.current.set(JHULA_CENTER[0], 0, JHULA_CENTER[2] - 1.8);
-          verticalVelocity.current = 3.5;
+          // Jump off in front of the swing (+Z)
+          position.current.set(JHULA_CENTER[0], 0, JHULA_CENTER[2] + 2.0);
+          verticalVelocity.current = 4.2;
           isGrounded.current = false;
+          if (characterMeshRef.current) {
+            characterMeshRef.current.position.set(0, 0, 0);
+            characterMeshRef.current.rotation.set(0, currentRotationY.current, 0);
+          }
           return;
         }
         if (isGrounded.current) {
@@ -257,9 +266,14 @@ export default function Player({
       jumpSignalRef.current = false;
       if (isRidingJhula) {
         if (onToggleJhula) onToggleJhula(false);
-        position.current.set(JHULA_CENTER[0], 0, JHULA_CENTER[2] - 1.8);
-        verticalVelocity.current = 3.5;
+        // Land in front of the swing (+Z)
+        position.current.set(JHULA_CENTER[0], 0, JHULA_CENTER[2] + 2.0);
+        verticalVelocity.current = 4.2;
         isGrounded.current = false;
+        if (characterMeshRef.current) {
+          characterMeshRef.current.position.set(0, 0, 0);
+          characterMeshRef.current.rotation.set(0, currentRotationY.current, 0);
+        }
       } else if (isGrounded.current) {
         verticalVelocity.current = 6.2;
         isGrounded.current = false;
@@ -273,30 +287,50 @@ export default function Player({
     // CASE A: PLAYER RIDING THE SWING (JHULA)
     // ==========================================
     if (isRidingJhula && currentSwing) {
-      // Snap player to swing seat position
+      // Snap player root so hips rest firmly on top of velvet cushion
+      // Character hips are at y = 0.55 above player root, so seat cushion is matched at swing.y
       position.current.x = currentSwing.x;
-      position.current.y = currentSwing.y + 0.15; // Seat elevation
+      position.current.y = currentSwing.y - 0.52;
       position.current.z = currentSwing.z;
 
       playerRef.current.position.set(position.current.x, position.current.y, position.current.z);
 
       if (characterMeshRef.current) {
-        // Face forward on swing + tilt with pendulum swing angle
+        // Face forward on swing (+Z direction, y = 0)
         characterMeshRef.current.rotation.y = 0;
-        characterMeshRef.current.rotation.x = currentSwing.angle * 0.85;
+        // Tilt synchronously with pendulum swing angle (exact match, no inverted sign!)
+        characterMeshRef.current.rotation.x = currentSwing.angle;
+        // Sit firmly against the backrest
+        characterMeshRef.current.position.set(0, 0, -0.12);
       }
 
-      // Sitting Pose: Legs dangling forward with inertia
+      // Sitting Pose: Thighs extend forward, dangling lower legs sway with pendulum inertia
       if (leftLegRef.current && rightLegRef.current) {
-        const legSway = 1.35 - currentSwing.angle * 0.9;
-        leftLegRef.current.rotation.x = legSway;
-        rightLegRef.current.rotation.x = legSway;
+        const legPitch = 1.48 - currentSwing.angle * 0.45;
+        leftLegRef.current.rotation.x = legPitch;
+        rightLegRef.current.rotation.x = legPitch;
+        leftLegRef.current.rotation.z = -0.06;
+        rightLegRef.current.rotation.z = 0.06;
       }
 
-      // Hands holding swing chains
+      // Hands holding swing chains securely on left and right
       if (leftArmRef.current && rightArmRef.current) {
-        leftArmRef.current.rotation.x = -1.15;
-        rightArmRef.current.rotation.x = -1.15;
+        leftArmRef.current.rotation.x = -1.22;
+        leftArmRef.current.rotation.z = -0.36; // Left hand reaches out to left brass chain
+        rightArmRef.current.rotation.x = -1.22;
+        rightArmRef.current.rotation.z = 0.36; // Right hand reaches out to right brass chain
+      }
+
+      // Torso comfortable upright
+      if (torsoRef.current) {
+        torsoRef.current.position.y = 0.65;
+        torsoRef.current.rotation.x = 0.06;
+        torsoRef.current.rotation.z = 0;
+      }
+
+      // Head looking forward enjoying the swing
+      if (headRef.current) {
+        headRef.current.rotation.x = -currentSwing.angle * 0.35;
       }
 
       // Smooth Camera tracking while on swing
