@@ -1,55 +1,75 @@
 import React, { useRef, useEffect } from 'react';
 
 /**
- * Invisible Touch Camera Control Zone
- * - Single-finger swipe: 360° Camera Yaw & Pitch
- * - Two-finger pinch: Camera Zoom In/Out
- * - Safely ignores touches on joystick, buttons, and HUD controls
- * - Accumulates deltas in touchCameraRef (no React re-renders)
+ * Isolated Touch Camera Control Zone
+ * - True Simultaneous Multi-Touch: Swipe camera & run with joystick at the same time!
+ * - Isolated from Joystick: Ignores joystick touches so they never trigger pinch zoom or lock rotation
+ * - Single camera finger: 360° Camera Yaw & Pitch Orbit
+ * - Two camera fingers: Pinch to Zoom In/Out
  */
 export default function TouchCameraZone({ touchCameraRef }) {
-  const activeTouchId = useRef(null);
-  const lastTouchPos = useRef({ x: 0, y: 0 });
-
-  // Two-finger pinch zoom tracking
+  // Map of active touches belonging strictly to camera gestures (touchId -> { x, y })
+  const cameraTouches = useRef(new Map());
   const pinchDistance = useRef(null);
 
   useEffect(() => {
-    const handleTouchStart = (e) => {
-      // Ignore if touch started on an interactive control or joystick
-      const target = e.target;
+    const isCameraTouch = (touch, target) => {
+      // 1. Ignore if started on interactive buttons, links, or marked HUD elements
       if (
-        target.closest('button') || 
-        target.closest('a') || 
-        target.closest('[data-no-swipe="true"]')
+        target && (
+          target.closest('button') || 
+          target.closest('a') || 
+          target.closest('[data-no-swipe="true"]')
+        )
       ) {
-        return;
+        return false;
       }
 
-      // Check for two-finger pinch
-      if (e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        pinchDistance.current = Math.hypot(dx, dy);
-        return;
-      }
+      // 2. Ignore if touch is in the bottom-left joystick quadrant
+      const isBottomLeftQuadrant = 
+        touch.clientX < window.innerWidth * 0.42 && 
+        touch.clientY > window.innerHeight * 0.45;
+      
+      return !isBottomLeftQuadrant;
+    };
 
-      // Single finger drag (look for a touch on the right 65% of screen or non-joystick region)
+    const handleTouchStart = (e) => {
       for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
-        if (touch.clientX > window.innerWidth * 0.35) {
-          activeTouchId.current = touch.identifier;
-          lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
-          break;
+        if (isCameraTouch(touch, e.target)) {
+          cameraTouches.current.set(touch.identifier, {
+            x: touch.clientX,
+            y: touch.clientY
+          });
         }
+      }
+
+      // If two camera fingers are active on the camera zone, initialize pinch distance
+      if (cameraTouches.current.size === 2) {
+        const touchArray = Array.from(cameraTouches.current.values());
+        const dx = touchArray[0].x - touchArray[1].x;
+        const dy = touchArray[0].y - touchArray[1].y;
+        pinchDistance.current = Math.hypot(dx, dy);
       }
     };
 
     const handleTouchMove = (e) => {
-      // 1. Two-finger pinch zoom
-      if (e.touches.length === 2 && pinchDistance.current !== null) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
+      // CASE 1: Two camera fingers in camera zone = Pinch Zoom
+      if (cameraTouches.current.size === 2 && pinchDistance.current !== null) {
+        // Update stored positions of changed camera touches
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const touch = e.changedTouches[i];
+          if (cameraTouches.current.has(touch.identifier)) {
+            cameraTouches.current.set(touch.identifier, {
+              x: touch.clientX,
+              y: touch.clientY
+            });
+          }
+        }
+
+        const touchArray = Array.from(cameraTouches.current.values());
+        const dx = touchArray[0].x - touchArray[1].x;
+        const dy = touchArray[0].y - touchArray[1].y;
         const currentDist = Math.hypot(dx, dy);
         const deltaZoom = (pinchDistance.current - currentDist) * 0.015;
         pinchDistance.current = currentDist;
@@ -60,33 +80,35 @@ export default function TouchCameraZone({ touchCameraRef }) {
         return;
       }
 
-      // 2. Single-finger camera orbit
-      if (activeTouchId.current === null) return;
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const touch = e.changedTouches[i];
-        if (touch.identifier === activeTouchId.current) {
-          const deltaX = touch.clientX - lastTouchPos.current.x;
-          const deltaY = touch.clientY - lastTouchPos.current.y;
-          lastTouchPos.current = { x: touch.clientX, y: touch.clientY };
+      // CASE 2: Single camera finger = 360° Camera Orbit (Works simultaneously while running on joystick!)
+      if (cameraTouches.current.size === 1) {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const touch = e.changedTouches[i];
+          const prev = cameraTouches.current.get(touch.identifier);
+          if (prev) {
+            const deltaX = touch.clientX - prev.x;
+            const deltaY = touch.clientY - prev.y;
+            cameraTouches.current.set(touch.identifier, {
+              x: touch.clientX,
+              y: touch.clientY
+            });
 
-          if (touchCameraRef && touchCameraRef.current) {
-            touchCameraRef.current.yaw -= deltaX * 0.0055;
-            touchCameraRef.current.pitch += deltaY * 0.0035;
+            if (touchCameraRef && touchCameraRef.current) {
+              touchCameraRef.current.yaw -= deltaX * 0.0055;
+              touchCameraRef.current.pitch += deltaY * 0.0035;
+            }
+            break;
           }
-          break;
         }
       }
     };
 
     const handleTouchEnd = (e) => {
-      if (e.touches.length < 2) {
-        pinchDistance.current = null;
-      }
       for (let i = 0; i < e.changedTouches.length; i++) {
-        if (e.changedTouches[i].identifier === activeTouchId.current) {
-          activeTouchId.current = null;
-          break;
-        }
+        cameraTouches.current.delete(e.changedTouches[i].identifier);
+      }
+      if (cameraTouches.current.size < 2) {
+        pinchDistance.current = null;
       }
     };
 

@@ -669,7 +669,7 @@ export default function Player({
                 <coneGeometry args={[0.03, 0.08, 8]} />
                 <meshBasicMaterial color="#FFDD00" />
               </mesh>
-              <pointLight position={[0, 0.1, 0]} color="#FFA500" intensity={1.8} distance={5} />
+              <pointLight position={[0, 0.12, 0.05]} color="#FFB703" intensity={2.8} distance={8} />
             </group>
           </group>
 

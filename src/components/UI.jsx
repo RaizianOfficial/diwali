@@ -6,10 +6,11 @@ import {
   Minimize, 
   Info, 
   X, 
-  Flame, 
   Zap, 
   ArrowUp,
-  Download
+  Download,
+  Smartphone,
+  RotateCcw
 } from 'lucide-react';
 import { soundManager } from '../utils/SoundManager';
 import Joystick from './Joystick';
@@ -18,7 +19,8 @@ import Joystick from './Joystick';
  * Mobile-First Responsive HUD with Touch Controls & PC Key Guides
  * - Floating Virtual Joystick (Bottom-Left)
  * - Tactile Mobile Action Buttons: Jump, Sprint Lock, and Interactive Jhula (Bottom-Right)
- * - Swipe Camera Zone & Fullscreen Browser Mode
+ * - Turn Your Phone (Rotate to Landscape) Notice for Mobile Gamers
+ * - One-Tap Fullscreen Immersive Mode
  * - Collapsible Controls Modal
  */
 export default function UI({ 
@@ -35,6 +37,8 @@ export default function UI({
   const [showHelp, setShowHelp] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isPortrait, setIsPortrait] = useState(false);
+  const [dismissPortrait, setDismissPortrait] = useState(false);
 
   // Sound toggle
   const toggleSound = () => {
@@ -54,6 +58,32 @@ export default function UI({
       }
     }
   };
+
+  // Fullscreen state listener
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Detect mobile device orientation (portrait vs landscape)
+  useEffect(() => {
+    const checkOrientation = () => {
+      const isMobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || window.innerWidth < 820;
+      const portrait = isMobile && window.innerHeight > window.innerWidth;
+      setIsPortrait(portrait);
+    };
+
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('orientationchange', checkOrientation);
+    };
+  }, []);
 
   // PWA Install Prompt Listener
   useEffect(() => {
@@ -82,8 +112,13 @@ export default function UI({
     }
   };
 
+  const handleEnterFullscreenFromModal = () => {
+    toggleFullscreen();
+    setDismissPortrait(true);
+  };
+
   return (
-    <div className="pointer-events-none fixed inset-0 z-40 flex flex-col justify-between p-3 sm:p-5 select-none overflow-hidden pb-[env(safe-area-inset-bottom,12px)]">
+    <div className="pointer-events-none fixed inset-0 z-40 flex flex-col justify-between p-2.5 sm:p-5 select-none overflow-hidden pb-[env(safe-area-inset-bottom,12px)]">
       
       {/* ========================================= */}
       {/* TOP HEADER: Compact & Mobile-Optimized    */}
@@ -91,8 +126,8 @@ export default function UI({
       <header className="flex items-center justify-between w-full max-w-7xl mx-auto pointer-events-auto gap-2">
         
         {/* Brand / Title Pill */}
-        <div className="flex items-center gap-2 sm:gap-3 bg-slate-950/80 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl border border-amber-500/30 shadow-2xl">
-          <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-base sm:text-xl shadow-md shadow-amber-500/40">
+        <div className="flex items-center gap-2 sm:gap-3 bg-slate-950/80 backdrop-blur-md px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-2xl border border-amber-500/30 shadow-2xl">
+          <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-sm sm:text-xl shadow-md shadow-amber-500/40">
             🪔
           </div>
           <div>
@@ -112,17 +147,21 @@ export default function UI({
           {deferredPrompt && !isInstalled && (
             <button
               onClick={handleInstallClick}
-              className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 text-xs font-black rounded-xl shadow-lg border border-amber-300 animate-pulse transition hover:scale-105 active:scale-95"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 text-xs font-black rounded-xl shadow-lg border border-amber-300 animate-pulse transition hover:scale-105 active:scale-95"
             >
               <Download className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline">Install App</span>
+              <span className="hidden xs:inline">Install</span>
             </button>
           )}
 
           {/* Fullscreen Button */}
           <button
             onClick={toggleFullscreen}
-            className="p-2 sm:p-2.5 bg-slate-900/80 hover:bg-slate-800 backdrop-blur-md rounded-xl sm:rounded-2xl border border-amber-500/30 text-amber-400 transition hover:scale-105 active:scale-95 shadow-lg"
+            className={`p-2 sm:p-2.5 backdrop-blur-md rounded-xl sm:rounded-2xl border transition hover:scale-105 active:scale-95 shadow-lg ${
+              !isFullscreen 
+                ? 'bg-amber-500/20 border-amber-400 text-amber-300 animate-pulse' 
+                : 'bg-slate-900/80 hover:bg-slate-800 border-amber-500/30 text-amber-400'
+            }`}
             title="Toggle Fullscreen"
           >
             {isFullscreen ? <Minimize className="w-4 h-4 sm:w-5 sm:h-5" /> : <Maximize className="w-4 h-4 sm:w-5 sm:h-5" />}
@@ -148,6 +187,51 @@ export default function UI({
 
         </div>
       </header>
+
+      {/* ================================================= */}
+      {/* "ROTATE PHONE" & FULLSCREEN MODAL (PORTRAIT MODE) */}
+      {/* ================================================= */}
+      {isPortrait && !dismissPortrait && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-lg flex items-center justify-center p-5 pointer-events-auto">
+          <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-2 border-amber-500/50 rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center text-amber-100 flex flex-col items-center gap-4 glow-gold">
+            
+            {/* Animated Rotating Smartphone Icon */}
+            <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-yellow-400/20 border border-amber-400/40 flex items-center justify-center shadow-lg">
+              <Smartphone className="w-10 h-10 text-amber-300 animate-bounce" />
+              <RotateCcw className="absolute w-14 h-14 text-yellow-400 animate-spin" style={{ animationDuration: '4s' }} />
+            </div>
+
+            {/* Heading & Notice */}
+            <div className="space-y-1">
+              <h2 className="text-lg sm:text-xl font-black font-festive text-amber-300 tracking-wider">
+                ROTATE PHONE TO LANDSCAPE
+              </h2>
+              <p className="text-xs text-amber-100/75 leading-relaxed">
+                Diwali Mela 3D ground landscape mode me sabse shaandar dikhta hai. Phone ko aada (horizontal) ghumaayein!
+              </p>
+            </div>
+
+            {/* Buttons */}
+            <div className="w-full flex flex-col gap-2.5 pt-2">
+              <button
+                onClick={handleEnterFullscreenFromModal}
+                className="w-full py-3 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 text-slate-950 font-black text-sm rounded-2xl shadow-xl flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition"
+              >
+                <Maximize className="w-4 h-4" />
+                <span>Enter Fullscreen Mode</span>
+              </button>
+
+              <button
+                onClick={() => setDismissPortrait(true)}
+                className="w-full py-2 bg-slate-800/80 hover:bg-slate-700 text-amber-200/80 text-xs font-semibold rounded-xl border border-slate-700 active:scale-95 transition"
+              >
+                Continue in Portrait
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* ========================================= */}
       {/* BOTTOM CONTROLS DECK (MOBILE-FIRST)       */}
@@ -245,12 +329,13 @@ export default function UI({
                 <span>📱</span> Phone & Tablet Touch Controls
               </h4>
               <ul className="text-xs space-y-1.5 text-slate-300">
-                <li>• <strong className="text-amber-200">Left Thumb Joystick:</strong> Move 360° in any direction. Pull all the way to auto-sprint!</li>
+                <li>• <strong className="text-amber-200">Simultaneous Multi-Touch:</strong> Run with left thumb & swipe camera with right thumb at the same time!</li>
+                <li>• <strong className="text-amber-200">Left Thumb Joystick:</strong> Move 360° in any direction. Pull past ring to auto-sprint!</li>
                 <li>• <strong className="text-amber-200">Right Screen Drag:</strong> Swipe anywhere on the right half to rotate camera 360°.</li>
-                <li>• <strong className="text-amber-200">Pinch In/Out:</strong> Zoom camera closer or further away.</li>
+                <li>• <strong className="text-amber-200">Pinch In/Out:</strong> Two-finger pinch to zoom camera.</li>
                 <li>• <strong className="text-amber-200">JUMP Button:</strong> Jump over rangoli and obstacles.</li>
                 <li>• <strong className="text-amber-200">RUN Button:</strong> Lock sprint mode for fast running.</li>
-                <li>• <strong className="text-amber-200">🎡 Ride Jhula:</strong> Tap the golden swing button when near the jhula to swing!</li>
+                <li>• <strong className="text-amber-200">🎡 Ride Jhula:</strong> Tap the side swing button when near the jhula to swing!</li>
               </ul>
             </div>
 

@@ -474,52 +474,65 @@ export default function MelaScene({
 }) {
   return (
     <>
-      {/* Sky & Atmosphere */}
-      <color attach="background" args={['#060817']} />
-      <fog attach="fog" args={['#070a1c', 22, 68]} />
+      {/* Sky & Atmosphere - Vibrant Festive Night */}
+      <color attach="background" args={['#080d24']} />
+      <fog attach="fog" args={['#090e28', 28, 85]} />
       
       <Stars 
         radius={60} 
         depth={35} 
-        count={3200} 
+        count={3400} 
         factor={4} 
         saturation={0.8} 
         fade 
         speed={1.5} 
       />
 
-      {/* Lighting Architecture */}
-      <ambientLight intensity={0.35} color="#4F46E5" />
+      {/* Global Illumination: Moonlight Sky + Diya Ground Bounce */}
+      <ambientLight intensity={0.65} color="#A5B4FC" />
+      <hemisphereLight args={['#C7D2FE', '#B45309', 0.95]} />
 
-      {/* Main Moonlight with shadows */}
+      {/* Main Moonlight with Soft High-Res Shadows */}
       <directionalLight
-        position={[16, 28, 16]}
-        intensity={1.1}
-        color="#C7D2FE"
+        position={[20, 35, 20]}
+        intensity={1.65}
+        color="#E0E7FF"
         castShadow
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
-        shadow-camera-far={70}
-        shadow-camera-left={-28}
-        shadow-camera-right={28}
-        shadow-camera-top={28}
-        shadow-camera-bottom={-28}
-        shadow-bias={-0.0004}
+        shadow-camera-far={80}
+        shadow-camera-left={-30}
+        shadow-camera-right={30}
+        shadow-camera-top={30}
+        shadow-camera-bottom={-30}
+        shadow-bias={-0.0003}
       />
 
-      {/* Warm Plaza Light */}
-      <pointLight position={[0, 4.5, 0]} intensity={1.8} color="#FF9900" distance={25} />
+      {/* Central Deepstambha & Plaza Lighting */}
+      <pointLight position={[0, 6.0, 0]} intensity={3.5} color="#FFB703" distance={32} />
+      <pointLight position={[0, 2.2, 0]} intensity={2.4} color="#FFA500" distance={20} />
 
-      {/* Mela Ground Plaza */}
+      {/* Stalls Illuminations (Warm Glowing Dukaan Lights) */}
+      <pointLight position={[-13, 3.2, -2]} intensity={3.2} color="#FFA500" distance={20} />
+      <pointLight position={[13, 3.2, -2]} intensity={3.2} color="#FFA500" distance={20} />
+
+      {/* Grand Entrance Gate Toran Glow */}
+      <pointLight position={[0, 5.0, 21]} intensity={3.8} color="#FF9900" distance={24} />
+
+      {/* Walkway Festive Pathway Glow */}
+      <pointLight position={[-3.5, 1.2, 11]} intensity={1.8} color="#FF9900" distance={12} />
+      <pointLight position={[3.5, 1.2, 11]} intensity={1.8} color="#FF9900" distance={12} />
+
+      {/* Mela Ground Plaza (Warm festive earthen terracotta ground) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-        <planeGeometry args={[65, 65]} />
-        <meshStandardMaterial color="#1E140C" roughness={0.92} />
+        <planeGeometry args={[70, 70]} />
+        <meshStandardMaterial color="#2E2015" roughness={0.88} />
       </mesh>
 
       {/* Cobblestone Circle around Central Deepstambha */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, 0]} receiveShadow>
         <ringGeometry args={[0, 8.5, 36]} />
-        <meshStandardMaterial color="#2B1D12" roughness={0.8} />
+        <meshStandardMaterial color="#422D1E" roughness={0.78} />
       </mesh>
 
       {/* Concentric Floral Rangoli Mandala */}
