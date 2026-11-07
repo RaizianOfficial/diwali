@@ -4,13 +4,12 @@ import {
   VolumeX, 
   Maximize, 
   Minimize, 
-  Navigation, 
   Compass, 
   Sparkles 
 } from 'lucide-react';
 import { soundManager } from '../utils/SoundManager';
 
-export default function UI() {
+export default function UI({ isNearJhula = false, isRidingJhula = false, onToggleJhula }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -45,14 +44,13 @@ export default function UI() {
               SHUBH DEEPAWALI MELA 3D
             </h1>
             <p className="text-xs text-amber-100/70">
-              High Performance 60FPS WebGL Experience
+              Interactive Festive Ground with Solid Collisions & Jhula
             </p>
           </div>
         </div>
 
         {/* Action Controls */}
         <div className="flex items-center gap-2">
-          {/* Fullscreen Button */}
           <button
             onClick={toggleFullscreen}
             className="p-3 bg-slate-900/80 hover:bg-slate-800 backdrop-blur-md rounded-2xl border border-amber-500/30 text-amber-400 transition hover:scale-105 active:scale-95 shadow-lg"
@@ -61,7 +59,6 @@ export default function UI() {
             {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
           </button>
 
-          {/* Audio Toggle */}
           <button
             onClick={toggleSound}
             className="p-3 bg-slate-900/80 hover:bg-slate-800 backdrop-blur-md rounded-2xl border border-amber-500/30 text-amber-400 transition hover:scale-105 active:scale-95 shadow-lg"
@@ -71,6 +68,34 @@ export default function UI() {
           </button>
         </div>
       </header>
+
+      {/* Center Interactive Prompts */}
+      <div className="self-center pointer-events-auto flex flex-col items-center gap-2">
+        {/* Jhula Riding Status */}
+        {isRidingJhula && (
+          <div className="bg-gradient-to-r from-red-600/90 to-amber-600/90 backdrop-blur-md text-white font-bold text-sm px-6 py-2.5 rounded-full shadow-2xl border border-yellow-300 flex items-center gap-2.5 animate-bounce">
+            <span className="text-lg">🎡</span>
+            <span>Swinging on Jhula! Press <kbd className="px-2 py-0.5 bg-black/40 rounded text-yellow-300">Space</kbd> or <kbd className="px-2 py-0.5 bg-black/40 rounded text-yellow-300">E</kbd> to Jump Off</span>
+            <button 
+              onClick={() => onToggleJhula(false)}
+              className="ml-2 px-3 py-1 bg-white text-slate-950 text-xs font-black rounded-full hover:bg-yellow-200"
+            >
+              Get Off
+            </button>
+          </div>
+        )}
+
+        {/* Near Jhula Mount Prompt */}
+        {!isRidingJhula && isNearJhula && (
+          <button
+            onClick={() => onToggleJhula(true)}
+            className="bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-sm sm:text-base px-6 py-3 rounded-full shadow-2xl flex items-center gap-2.5 border-2 border-white animate-pulse glow-gold transition hover:scale-105 active:scale-95"
+          >
+            <span className="text-xl">🎡</span>
+            <span>Near Swing: Press <strong>[E]</strong> or Tap to Ride Jhula!</span>
+          </button>
+        )}
+      </div>
 
       {/* Bottom PC Controls Guide Dock */}
       <footer className="w-full max-w-3xl mx-auto pointer-events-auto pb-2">
@@ -97,6 +122,12 @@ export default function UI() {
             <kbd className="px-2 py-1 bg-slate-800 rounded border border-slate-700 text-amber-300 font-bold text-[11px]">Space</kbd>
           </div>
 
+          {/* Interact / Swing */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-amber-400 font-bold">Ride Jhula:</span>
+            <kbd className="px-2 py-1 bg-slate-800 rounded border border-slate-700 text-amber-300 font-bold text-[11px]">E</kbd>
+          </div>
+
           {/* Camera Orbit */}
           <div className="flex items-center gap-1.5">
             <Compass className="w-4 h-4 text-amber-400" />
@@ -107,7 +138,7 @@ export default function UI() {
           {/* Camera Zoom */}
           <div className="flex items-center gap-1.5">
             <span className="text-amber-300 font-semibold">Scroll:</span>
-            <span>Zoom In / Out</span>
+            <span>Zoom</span>
           </div>
 
         </div>

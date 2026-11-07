@@ -1,6 +1,8 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { resolveMelaCollision } from '../utils/Collisions';
+import { JHULA_CENTER } from './MelaScene';
 
 export const MELA_BOUNDS = {
   minX: -28,
@@ -10,14 +12,19 @@ export const MELA_BOUNDS = {
 };
 
 /**
- * Pure Three.js Procedural Festive Character with PC Camera Controller
- * - Zero external .glb downloads (0 ms load time, super lightweight!)
- * - Articulated procedural limbs (legs, arms, torso, head, turban, diya)
- * - WASD / Arrow Keys + Shift (Sprint) + Space (Jump/Hop)
- * - Mouse Drag to Orbit Camera 360° + Mouse Wheel Zoom
- * - Smooth camera spring follow with directional look-ahead
+ * Procedural Festive Indian Character with Solid Collisions & Interactive Swing
+ * - Real Collision Resolution: Character cannot clip through stalls, pillars, or monuments!
+ * - Functional Interactive Swing (Jhula): Press [E] when near to sit and swing!
+ * - WASD Movement + Shift Sprint + Space Jump
+ * - 360° Mouse Orbit Camera + Scroll Wheel Zoom
  */
-export default function Player({ onPositionChange }) {
+export default function Player({ 
+  onPositionChange, 
+  isRidingJhula = false, 
+  onToggleJhula, 
+  swingTransform,
+  onNearJhulaChange 
+}) {
   const playerRef = useRef();
   const characterMeshRef = useRef();
   const torsoRef = useRef();
@@ -40,8 +47,8 @@ export default function Player({ onPositionChange }) {
     jump: false
   });
 
-  // Physics & movement state
-  const position = useRef(new THREE.Vector3(0, 0, 10)); // Start in mela entrance avenue
+  // Movement & physics state
+  const position = useRef(new THREE.Vector3(0, 0, 10));
   const velocity = useRef(new THREE.Vector3());
   const verticalVelocity = useRef(0);
   const isGrounded = useRef(true);
@@ -49,21 +56,50 @@ export default function Player({ onPositionChange }) {
   const currentRotationY = useRef(Math.PI);
   const walkCycle = useRef(0);
   const idleCycle = useRef(0);
+  const isNearJhulaRef = useRef(false);
 
-  // Orbit Camera State (Mouse drag & wheel zoom)
-  const cameraYaw = useRef(0); // Horizontal orbit angle (radians)
-  const cameraPitch = useRef(0.28); // Vertical pitch angle (radians)
-  const cameraDistance = useRef(5.8); // Distance from player (units)
+  // Orbit Camera State
+  const cameraYaw = useRef(0);
+  const cameraPitch = useRef(0.28);
+  const cameraDistance = useRef(5.8);
   const targetCameraDistance = useRef(5.8);
   const isDraggingMouse = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
 
-  // Keyboard listeners for PC players
+  // Keyboard listeners for PC Players
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Prevent scrolling on space / arrows
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
         e.preventDefault();
+      }
+
+      // [E] Key: Mount / Dismount Swing
+      if (e.code === 'KeyE') {
+        if (isRidingJhula) {
+          // Dismount
+          if (onToggleJhula) onToggleJhula(false);
+          position.current.set(JHULA_CENTER[0], 0, JHULA_CENTER[2] - 1.8);
+        } else if (isNearJhulaRef.current) {
+          // Mount
+          if (onToggleJhula) onToggleJhula(true);
+        }
+        return;
+      }
+
+      // [Space] Key: Jump OR Dismount if riding swing
+      if (e.code === 'Space') {
+        if (isRidingJhula) {
+          if (onToggleJhula) onToggleJhula(false);
+          position.current.set(JHULA_CENTER[0], 0, JHULA_CENTER[2] - 1.8);
+          verticalVelocity.current = 3.5;
+          isGrounded.current = false;
+          return;
+        }
+        if (isGrounded.current) {
+          verticalVelocity.current = 6.2;
+          isGrounded.current = false;
+        }
+        return;
       }
 
       switch (e.code) {
@@ -86,12 +122,6 @@ export default function Player({ onPositionChange }) {
         case 'ShiftLeft':
         case 'ShiftRight':
           keys.current.sprint = true;
-          break;
-        case 'Space':
-          if (isGrounded.current) {
-            verticalVelocity.current = 6.2;
-            isGrounded.current = false;
-          }
           break;
         default:
           break;
@@ -131,14 +161,13 @@ export default function Player({ onPositionChange }) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, []);
+  }, [isRidingJhula, onToggleJhula]);
 
-  // Mouse Orbit & Zoom Controls for PC Players
+  // Mouse Orbit & Scroll Zoom Controls
   useEffect(() => {
     const dom = gl.domElement;
 
     const handleMouseDown = (e) => {
-      // Left or Right Click Drag to Orbit
       if (e.button === 0 || e.button === 2) {
         isDraggingMouse.current = true;
         lastMousePos.current = { x: e.clientX, y: e.clientY };
@@ -151,12 +180,11 @@ export default function Player({ onPositionChange }) {
       const deltaY = e.clientY - lastMousePos.current.y;
       lastMousePos.current = { x: e.clientX, y: e.clientY };
 
-      // Orbit sensitivity
       cameraYaw.current -= deltaX * 0.005;
       cameraPitch.current = THREE.MathUtils.clamp(
         cameraPitch.current + deltaY * 0.004,
-        0.05, // Minimum pitch (ground angle)
-        1.15  // Maximum pitch (top-down view)
+        0.05,
+        1.15
       );
     };
 
@@ -166,11 +194,10 @@ export default function Player({ onPositionChange }) {
 
     const handleWheel = (e) => {
       e.preventDefault();
-      // Zoom in/out smoothly with scroll wheel
       targetCameraDistance.current = THREE.MathUtils.clamp(
         targetCameraDistance.current + e.deltaY * 0.005,
-        3.2, // Close up third person
-        11.0 // Wide mela view
+        3.2,
+        11.0
       );
     };
 
@@ -191,11 +218,67 @@ export default function Player({ onPositionChange }) {
     };
   }, [gl]);
 
-  // Frame animation & physics loop
+  // Main Physics, Collision & Animation Loop
   useFrame((_, delta) => {
     if (!playerRef.current) return;
 
-    // Movement calculation
+    // ==========================================
+    // CASE A: PLAYER RIDING THE SWING (JHULA)
+    // ==========================================
+    if (isRidingJhula && swingTransform) {
+      // Snap player to swing seat position
+      position.current.x = swingTransform.x;
+      position.current.y = swingTransform.y + 0.15; // Seat elevation
+      position.current.z = swingTransform.z;
+
+      playerRef.current.position.set(position.current.x, position.current.y, position.current.z);
+
+      if (characterMeshRef.current) {
+        // Face forward on swing + tilt with pendulum swing angle
+        characterMeshRef.current.rotation.y = 0;
+        characterMeshRef.current.rotation.x = swingTransform.angle * 0.85;
+      }
+
+      // Sitting Pose: Legs dangling forward with inertia
+      if (leftLegRef.current && rightLegRef.current) {
+        const legSway = 1.35 - swingTransform.angle * 0.9;
+        leftLegRef.current.rotation.x = legSway;
+        rightLegRef.current.rotation.x = legSway;
+      }
+
+      // Hands holding swing chains
+      if (leftArmRef.current && rightArmRef.current) {
+        leftArmRef.current.rotation.x = -1.15;
+        rightArmRef.current.rotation.x = -1.15;
+      }
+
+      // Smooth Camera tracking while on swing
+      cameraDistance.current = THREE.MathUtils.lerp(cameraDistance.current, 5.2, 0.1);
+      const dist = cameraDistance.current;
+      const pitch = cameraPitch.current;
+      const yaw = cameraYaw.current;
+
+      const offsetX = Math.sin(yaw) * Math.cos(pitch) * dist;
+      const offsetY = Math.sin(pitch) * dist + 1.2;
+      const offsetZ = Math.cos(yaw) * Math.cos(pitch) * dist;
+
+      const targetCameraPos = new THREE.Vector3(
+        position.current.x + offsetX,
+        position.current.y + offsetY,
+        position.current.z + offsetZ
+      );
+      camera.position.lerp(targetCameraPos, 0.1);
+      camera.lookAt(new THREE.Vector3(position.current.x, position.current.y + 1.1, position.current.z));
+
+      if (onPositionChange) {
+        onPositionChange([position.current.x, position.current.y, position.current.z]);
+      }
+      return;
+    }
+
+    // ==========================================
+    // CASE B: NORMAL GROUND WALKING & RUNNING
+    // ==========================================
     let inputX = 0;
     let inputZ = 0;
 
@@ -213,7 +296,6 @@ export default function Player({ onPositionChange }) {
       const normX = inputX / inputLen;
       const normZ = inputZ / inputLen;
 
-      // Calculate camera-relative movement direction
       const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraYaw.current);
       const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraYaw.current);
 
@@ -227,10 +309,8 @@ export default function Player({ onPositionChange }) {
       velocity.current.x = moveDir.x * moveSpeed;
       velocity.current.z = moveDir.z * moveSpeed;
 
-      // Advance walk cycle
       walkCycle.current += delta * (isSprinting ? 14 : 9.5);
     } else {
-      // Smooth deceleration
       velocity.current.x = THREE.MathUtils.damp(velocity.current.x, 0, 12, delta);
       velocity.current.z = THREE.MathUtils.damp(velocity.current.z, 0, 12, delta);
       idleCycle.current += delta * 2.2;
@@ -238,7 +318,7 @@ export default function Player({ onPositionChange }) {
 
     // Gravity & Jump Physics
     if (!isGrounded.current) {
-      verticalVelocity.current -= 17.5 * delta; // Gravity
+      verticalVelocity.current -= 17.5 * delta;
       position.current.y += verticalVelocity.current * delta;
 
       if (position.current.y <= 0) {
@@ -248,17 +328,22 @@ export default function Player({ onPositionChange }) {
       }
     }
 
-    // Apply horizontal position
-    position.current.x += velocity.current.x * delta;
-    position.current.z += velocity.current.z * delta;
+    // Candidate next position
+    const nextX = position.current.x + velocity.current.x * delta;
+    const nextZ = position.current.z + velocity.current.z * delta;
 
-    // Constrain player within Mela boundaries
-    position.current.x = THREE.MathUtils.clamp(position.current.x, MELA_BOUNDS.minX, MELA_BOUNDS.maxX);
-    position.current.z = THREE.MathUtils.clamp(position.current.z, MELA_BOUNDS.minZ, MELA_BOUNDS.maxZ);
+    // ==========================================
+    // SOLID OBJECT COLLISIONS (Wall-Sliding)
+    // ==========================================
+    const resolved = resolveMelaCollision(nextX, nextZ, 0.44);
+
+    // Mela outer perimeter clamp
+    position.current.x = THREE.MathUtils.clamp(resolved.x, MELA_BOUNDS.minX, MELA_BOUNDS.maxX);
+    position.current.z = THREE.MathUtils.clamp(resolved.z, MELA_BOUNDS.minZ, MELA_BOUNDS.maxZ);
 
     playerRef.current.position.set(position.current.x, position.current.y, position.current.z);
 
-    // Smoothly rotate character towards movement direction
+    // Smooth character rotation towards movement direction
     let angleDiff = targetRotationY.current - currentRotationY.current;
     while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
@@ -266,37 +351,29 @@ export default function Player({ onPositionChange }) {
 
     if (characterMeshRef.current) {
       characterMeshRef.current.rotation.y = currentRotationY.current;
+      characterMeshRef.current.rotation.x = 0;
     }
 
-    // ==========================================
-    // PROCEDURAL SKELETAL CHARACTER ANIMATIONS
-    // ==========================================
+    // Procedural Walking / Running Animations
     if (isMoving) {
       const walk = walkCycle.current;
       const legAmp = isSprinting ? 0.72 : 0.52;
       const armAmp = isSprinting ? 0.65 : 0.45;
 
-      // Legs swing (hip pivots)
       if (leftLegRef.current && rightLegRef.current) {
         leftLegRef.current.rotation.x = Math.sin(walk) * legAmp;
         rightLegRef.current.rotation.x = -Math.sin(walk) * legAmp;
       }
-
-      // Arms counter-swing
       if (leftArmRef.current && rightArmRef.current) {
         leftArmRef.current.rotation.x = -Math.sin(walk) * armAmp;
-        // Right hand carries the diya gently
         rightArmRef.current.rotation.x = (Math.sin(walk) * armAmp * 0.3) - 0.22;
       }
-
-      // Torso step bounce & sprint lean
       if (torsoRef.current) {
         const bounce = Math.abs(Math.sin(walk * 2)) * (isSprinting ? 0.12 : 0.08);
         torsoRef.current.position.y = 0.65 + bounce;
         torsoRef.current.rotation.x = isSprinting ? 0.14 : 0.06;
-        torsoRef.current.rotation.z = -velocity.current.x * 0.015; // Banking
+        torsoRef.current.rotation.z = -velocity.current.x * 0.015;
       }
-
       if (headRef.current) {
         headRef.current.rotation.x = Math.sin(walk * 2) * 0.04;
       }
@@ -327,17 +404,25 @@ export default function Player({ onPositionChange }) {
       diyaFlameRef.current.scale.set(flicker, flicker * 1.15, flicker);
     }
 
+    // Check Jhula proximity
+    const dxJhula = position.current.x - JHULA_CENTER[0];
+    const dzJhula = position.current.z - JHULA_CENTER[2];
+    const distJhula = Math.hypot(dxJhula, dzJhula);
+    const nearJhula = distJhula < 2.8;
+
+    if (nearJhula !== isNearJhulaRef.current) {
+      isNearJhulaRef.current = nearJhula;
+      if (onNearJhulaChange) {
+        onNearJhulaChange(nearJhula);
+      }
+    }
+
     if (onPositionChange) {
       onPositionChange([position.current.x, position.current.y, position.current.z]);
     }
 
-    // ==========================================
-    // CINEMATIC THIRD-PERSON SPRING CAMERA
-    // ==========================================
-    // Smooth camera distance interpolation (Zoom)
+    // Third-Person Spring Camera Follow
     cameraDistance.current = THREE.MathUtils.lerp(cameraDistance.current, targetCameraDistance.current, 0.1);
-
-    // Compute spherical camera position based on yaw, pitch, distance
     const dist = cameraDistance.current;
     const pitch = cameraPitch.current;
     const yaw = cameraYaw.current;
@@ -351,11 +436,8 @@ export default function Player({ onPositionChange }) {
       position.current.y + offsetY,
       position.current.z + offsetZ
     );
-
-    // Smooth spring follow
     camera.position.lerp(targetCameraPos, 0.1);
 
-    // Look at player torso/head
     const lookTarget = new THREE.Vector3(
       position.current.x,
       position.current.y + 1.25,
@@ -366,11 +448,13 @@ export default function Player({ onPositionChange }) {
 
   return (
     <group ref={playerRef} position={[0, 0, 10]}>
-      {/* Soft Contact Shadow on Ground */}
-      <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.55, 24]} />
-        <meshBasicMaterial color="#000000" transparent opacity={0.35} />
-      </mesh>
+      {/* Contact Shadow (hidden while in air or riding swing) */}
+      {!isRidingJhula && isGrounded.current && (
+        <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.55, 24]} />
+          <meshBasicMaterial color="#000000" transparent opacity={0.35} />
+        </mesh>
+      )}
 
       {/* Main Articulated Indian Character Avatar */}
       <group ref={characterMeshRef}>
