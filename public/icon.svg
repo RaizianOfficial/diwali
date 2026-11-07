@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <rect width="512" height="512" rx="128" fill="#060814"/>
+  <circle cx="256" cy="256" r="230" fill="none" stroke="#FF9900" stroke-width="8" stroke-dasharray="16 12"/>
+  
+  <!-- Outer Glow -->
+  <radialGradient id="glow" cx="50%" cy="40%" r="50%">
+    <stop offset="0%" stop-color="#FFEAA7" stop-opacity="0.9"/>
+    <stop offset="40%" stop-color="#FF7675" stop-opacity="0.4"/>
+    <stop offset="100%" stop-color="#060814" stop-opacity="0"/>
+  </radialGradient>
+  <circle cx="256" cy="220" r="180" fill="url(#glow)"/>
+
+  <!-- Diya Clay Pot Base -->
+  <path d="M128 320 C140 400 372 400 384 320 C384 300 128 300 128 320 Z" fill="#B33925" stroke="#E17055" stroke-width="6"/>
+  <ellipse cx="256" cy="305" rx="128" ry="25" fill="#D63031"/>
+  <ellipse cx="256" cy="302" rx="100" ry="16" fill="#F39C12"/>
+
+  <!-- Flame Flame Core -->
+  <path d="M256 120 C280 180 310 230 256 295 C202 230 232 180 256 120 Z" fill="#F1C40F"/>
+  <path d="M256 160 C270 200 290 235 256 285 C222 235 242 200 256 160 Z" fill="#FFFFFF"/>
+</svg>

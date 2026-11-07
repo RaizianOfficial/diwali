@@ -1,0 +1,18 @@
+{
+  "name": "Diwali Mela 3D - Shubh Deepawali",
+  "short_name": "Diwali Mela",
+  "description": "Interactive 3D WebGL Diwali Mela celebration with fireworks & leaderboard",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#040714",
+  "theme_color": "#FF9900",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
